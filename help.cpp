@@ -31,11 +31,25 @@ const Status RelCatalog::help(const string & relation)
   Status status;
   RelDesc rd;
   AttrDesc *attrs;
-  int attrCnt;
+  int attrCnt, i;
 
   if (relation.empty()) return UT_Print(RELCATNAME);
 
+   //get relation
+   if( (status = relCat->getInfo(relation, rd)) != OK){return status;}
 
+   //get list of attributes
+   if( (status = attrCat->getRelInfo(relation, attrCnt, attrs)) != OK){return status;}
+
+   cout << relation << endl;
+   printf( "NUM | Attribute Name | Type | Length | Offset | Indexed? | Index # ");
+   printf( "-------------------------------------------------------------------" );
+
+   for(i = 0; i < attrCnt; i ++){
+	   AttrDesc attr = attrs[i];
+ 	  printf(" %d | %s | %s | %d | %d ", i, attr.attrName, attr.attrType, attr.attrLen, attr.attrOffset);
+   
+   }
 
   return OK;
 }

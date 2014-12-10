@@ -17,17 +17,22 @@ const Status RelCatalog::createRel(const string & relation,
     return NAMETOOLONG;
 
 
-	// duplication check needed here
-//	attrInfo dup[attrCnt]
-
-
-
-
-
-
-
-
-
+	// check for duplicate attributes
+	for(i = 0; i < attrCnt; i++){
+		int j;
+		for(j = i; j < attrCnt; j++){
+			
+			//skip same index comparison
+			if(i == j){
+				continue;
+			}
+			//error if duplicate exists
+			if( strcmp(attrList[i].attrName, attrList[j].attrName) == 0 ){
+				return DUPLATTR;
+			}
+		}
+	
+	}
 
 
   	//check if relation exists

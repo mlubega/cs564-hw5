@@ -16,10 +16,30 @@ const Status RelCatalog::getInfo(const string & relation, RelDesc &record)
   Status status;
   Record rec;
   RID rid;
+  HeapFileScan* hfs;
 
-  this->startScan
+  hfs = new HeapFileScan( relation , status);
+  if(status != OK) {return status; }
+   
 
+  status = hfs->startScan(0, int(relation.length()), STRING, relation.c_str(), EQ);
+  if(status != OK) {return status; }
 
+  status = hfs->scanNext(rid);
+
+  if( status == FILEEOF) {return RELNOTFOUND;}
+  if(status != OK) {return status; }
+ 
+
+  status = hfs->getRecord(rec);
+  if(status != OK) {return status; }
+
+  memcpy(&record, &rec, rec.length);
+
+  status = hfs->endScan();
+  if(status != OK) {return status; }
+
+  return OK;
 
 }
 
@@ -34,14 +54,20 @@ const Status RelCatalog::addInfo(RelDesc & record)
   memcpy(rec.data, &record, sizeof(RelDesc));
   rec.length = sizeof(RelDesc); 
 
-  string relationName = string(record.relName);
+  ifs = new InsertFileScan( RELCATNAME , status);  
+  if(status != OK) {
+	  
+	  delete ifs;
+	  return status; }
 
-  ifs = new InsertFileScan(relationName, status);  
-  if(status != OK) {return status; }
   status = ifs->insertRecord(rec, rid);
-  if(status != OK) {return status; }
+  if(status != OK) {
+	  
+	  delete ifs;
+	  return status;
+  }
   
-
+  delete ifs;
 
   return OK;
 
@@ -55,8 +81,21 @@ const Status RelCatalog::removeInfo(const string & relation)
 
   if (relation.empty()) return BADCATPARM;
 
+  //create scan
+  hfs = new HeapFileScan(relation, status);
+  if(status != OK) {return status; }
+  
+  
+  if((status = hfs->startScan(0, int(relation.length()), STRING, relation.c_str(), EQ)) != OK){return status; }
 
+  if((status = hfs->scanNext(rid)) != OK) {return status; }
+ 
+  // if( (status = hfs->getRecord(rec)) != OK) {return status; }
+  if( (status = hfs->deleteRecord()) != OK) {return status; }
 
+  if(( status = hfs->endScan()) != OK) {return status; }
+
+  return OK;
 }
 
 
@@ -82,11 +121,38 @@ const Status AttrCatalog::getInfo(const string & relation,
   RID rid;
   Record rec;
   HeapFileScan*  hfs;
-
+  RelDesc relRecord;
   if (relation.empty() || attrName.empty()) return BADCATPARM;
 
+  //check relation exists
+  if( (status = relCat->getInfo(relation, relRecord)) != OK ) {return status;}
+
+  if( relRecord.attrCnt <= 0 ){ return ATTRNOTFOUND; }
+
+  //get list of records
+  AttrDesc * attrList;
+  int attrCnt; 
+  if( (status = attrCat->getRelInfo(relation, attrCnt, attrList)) != OK ) {return status;}
 
 
+  //search through list of returned records
+  int i; 
+  for (i = 0; i < attrCnt; i++){
+      
+	  char * attrNameCpy;
+	  attrName.copy(attrNameCpy, attrName.length(), 0);
+
+	   
+	  if(strcmp( attrNameCpy, (attrList[i].attrName) ) == 0 ){
+	  		memcpy( &record, &attrList[i], sizeof(AttrDesc));
+			delete attrList;
+			return OK;
+	  }
+  }
+
+  //no matches found
+  delete attrList;
+  return ATTRNOTFOUND;
 
 }
 
@@ -96,9 +162,27 @@ const Status AttrCatalog::addInfo(AttrDesc & record)
   RID rid;
   InsertFileScan*  ifs;
   Status status;
+  Record rec;
 
 
+  ifs = new InsertFileScan(ATTRCATNAME, status);
+  if( status != OK) {
+	  delete ifs;
+	  return status;
+  }
+ 
+  //store data
+  memcpy(rec.data, &record, sizeof(AttrDesc));
+  rec.length = record.attrLen;
 
+  //insert new record
+  if( (status = ifs->insertRecord(rec, rid)) != OK) {
+	  delete ifs;
+	  return OK;
+ }
+  
+  delete ifs;
+  return OK;
 
 
 }
@@ -112,8 +196,66 @@ const Status AttrCatalog::removeInfo(const string & relation,
   RID rid;
   AttrDesc record;
   HeapFileScan*  hfs;
+  RelDesc rd;
 
   if (relation.empty() || attrName.empty()) return BADCATPARM;
+ 
+ //ensure relation exists
+ if ( (status = relCat->getInfo(relation, rd)) != OK){ return OK;}
+
+ hfs = new HeapFileScan(ATTRCATNAME, status);
+ if (status != OK) {return status;}
+ 
+  status = hfs->startScan(0, int(attrName.length()), STRING, attrName.c_str(), EQ);
+  if(status != OK) {return status; }
+
+  
+  bool attrFound = false;
+
+
+  //loop to find attributes
+  while(!attrFound){
+
+  	status = hfs->scanNext(rid);
+
+  	if( status == FILEEOF){ break; }
+	
+	//clean exit in case of error
+	if( status != OK) { 
+		hfs->endScan();
+		delete hfs;
+		return status;
+	}
+
+	//get record or clean exit in case of error
+	status = hfs->getRecord(rec);
+    if( status != OK) { 
+		hfs->endScan();
+		delete hfs;
+		return status;
+	}
+
+	//compare relation name
+    AttrDesc * tmpAttrPtr =  (AttrDesc *) rec.data; 
+    char * tmpRelName;
+	relation.copy(tmpRelName, relation.length(), 0);
+
+	if( strcmp(tmpRelName, tmpAttrPtr->relName) == 0){
+		hfs->deleteRecord();
+		attrFound = true;
+	}
+  }
+
+  hfs->endScan();
+  delete hfs;
+
+  if(!attrFound){
+    return ATTRNOTFOUND;
+  }
+ 
+	return OK;
+ 
+
 
 }
 
@@ -126,8 +268,71 @@ const Status AttrCatalog::getRelInfo(const string & relation,
   RID rid;
   Record rec;
   HeapFileScan*  hfs;
+  RelDesc rd;
+  AttrDesc * attrArray;
+  int i;
 
   if (relation.empty()) return BADCATPARM;
+
+  // check that relation exists
+  if( (status = relCat->getInfo(relation,rd)) != OK) {return status;}; 
+
+  //create array for attributes
+  if( rd.attrCnt > 0){
+  		attrs = new AttrDesc[attrCnt];
+  }else{
+  		return ATTRNOTFOUND;
+  }
+
+  //start scanning for attributes
+  hfs = new HeapFileScan( ATTRCATNAME, status);
+  if( status != OK ) {return status;}
+ 
+  status = hfs->startScan(0, int(relation.length()), STRING, relation.c_str(), EQ);
+  if(status != OK) {return status; }
+
+
+  //fill attribute array
+  i = 0; //index for attrArray
+ 
+  while ( i < rd.attrCnt){
+
+	//find a record
+    status = hfs->scanNext(rid);
+ 
+	if( status == FILEEOF){ break; }
+	
+	// in case of some other error
+	if( status != OK) { 
+		hfs->endScan();
+		delete hfs;
+		return status; 
+	} 
+		
+	// retrieve record
+	if( (status = hfs->getRecord(rec)) != OK ){
+		hfs->endScan();
+		delete hfs;		
+		return status; // INVALIDSLOTNO or something
+	}
+
+	//copy over to array
+	memcpy(&attrArray[i], rec.data, rec.length);
+	
+	//increment array index
+	i++;
+	
+	}
+
+    
+   //clean up
+   hfs->endScan();
+   delete hfs;
+
+   //return values
+   attrCnt = rd.attrCnt;
+   attrs = attrArray;
+   return OK;
 
 
 
