@@ -1,8 +1,9 @@
 #include "catalog.h"
+#include "page.h"
 
 const Status RelCatalog::createRel(const string & relation, 
-				   const int attrCnt,
-				   const attrInfo attrList[])
+           const int attrCnt,
+           const attrInfo attrList[])
 {
   Status status;
   RelDesc rd;
@@ -13,65 +14,68 @@ const Status RelCatalog::createRel(const string & relation,
   if (relation.empty() || attrCnt < 1)
     return BADCATPARM;
 
-  if (relation.length() >= sizeof rd.relName)
+  if (relation.length() > MAXNAME )
     return NAMETOOLONG;
 
+  //check if relation exists
+  if( (status = relCat->getInfo(relation, rd)) == OK){return RELEXISTS;}
+  
+  //some other error
+  if( status != RELNOTFOUND) { return status;}
+  
+  // check attribute len
+  int attrLenSum = 0;
+  for(i = 0; i < attrCnt; i++){
+    attrLenSum += attrList[i].attrLen;
+  }
 
-	// check for duplicate attributes
-	for(i = 0; i < attrCnt; i++){
-		int j;
-		for(j = i; j < attrCnt; j++){
-			
-			//skip same index comparison
-			if(i == j){
-				continue;
-			}
-			//error if duplicate exists
-			if( strcmp(attrList[i].attrName, attrList[j].attrName) == 0 ){
-				return DUPLATTR;
-			}
-		}
-	
-	}
+  if( attrLenSum > PAGESIZE){
+    return NOSPACE;
+  } 
 
 
-  	//check if relation exists
-	status = relCat->getInfo(relation, rd);
+  // check for duplicate attributes
+  for(i = 0; i < attrCnt; i++){
+    int j;
+    for(j = i; j < attrCnt; j++){
+      
+      if(i == j){
+        continue;
+      }
+      
+      if( strcmp(attrList[i].attrName, attrList[j].attrName) == 0 ){
+        return DUPLATTR;
+      }
+    }
+  
+  }
 
-	if(status == OK) {return RELEXISTS;}
-
-	if(status = RELNOTFOUND){
-
-		relation.copy(rd.relName, relation.length(), 0);
-		rd.attrCnt = attrCnt;
-		status = relCat->addInfo(rd);
-		if (status != OK) {return status; }
+  // create a RelDesc for the relation and add to RelCatalog
+  relation.copy(rd.relName, relation.length(), 0);
+  rd.attrCnt = attrCnt;
+  if( (status = relCat->addInfo(rd)) != OK ){return status; }
 
 
-		attrInfo atr;
-		offsetCnt = 0;
-		for(i=0; i < attrCnt; i++){
-			
-			atr = attrList[i];
-			memcpy(atr.relName, ad.relName,MAXNAME);
-			memcpy(atr.attrName, ad.attrName,MAXNAME);
-			ad.attrType = atr.attrType;
-		    ad.attrLen = atr.attrLen;	
-			ad.attrOffset = offsetCnt;
+  // create an AttrDesc for each attribute and add to AttrCatalog
+  attrInfo atr;
+  offsetCnt = 0;
+  for(i=0; i < attrCnt; i++){
+     
+    atr = attrList[i];
+    memcpy(atr.relName, ad.relName,MAXNAME);
+    memcpy(atr.attrName, ad.attrName,MAXNAME);
+    ad.attrType = atr.attrType;
+    ad.attrLen = atr.attrLen; 
+    ad.attrOffset = offsetCnt;
 
-			status = attrCat->addInfo(ad);
-			if (status != OK) {return status; }
+    if( (status = attrCat->addInfo(ad)) != OK ){return status; }
+    offsetCnt += atr.attrLen; //update offsetCnt for later
+  }
 
-			offsetCnt += atr.attrLen; //update offsetCnt for later
-		
+  //create HeapFile
+  if( (status = createHeapFile(relation)) != OK){return status; }
 
-		}
-
-		status = createHeapFile(relation);
-		if(status != OK) {return status; }
-	}
-
-	return OK;
+  return OK;
 
 
 

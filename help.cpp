@@ -25,6 +25,17 @@ using namespace std;
 // 	OK on success
 // 	error code otherwise
 //
+//
+string  getDataType(int type) 
+{
+     switch (type) 
+     {
+       case STRING: return "S"; break;
+       case INTEGER: return "I"; break;
+       case FLOAT: return  "F"; break;
+       default: return " "; break; 
+    }
+}
 
 const Status RelCatalog::help(const string & relation)
 {
@@ -41,13 +52,18 @@ const Status RelCatalog::help(const string & relation)
    //get list of attributes
    if( (status = attrCat->getRelInfo(relation, attrCnt, attrs)) != OK){return status;}
 
-   cout << relation << endl;
-   printf( "NUM | Attribute Name | Type | Length | Offset | Indexed? | Index # ");
-   printf( "-------------------------------------------------------------------" );
+   
+
+
+   cout << "Relation name: " << relation << "(" << rd.attrCnt << "  attributes)" << endl;
+  
+   printf( " Attribute Name   Off      T    Len\n ");
+   printf( "---------------  ------- ----- -----\n" );
 
    for(i = 0; i < attrCnt; i ++){
 	   AttrDesc attr = attrs[i];
- 	  printf(" %d | %s | %s | %d | %d ", i, attr.attrName, attr.attrType, attr.attrLen, attr.attrOffset);
+ 
+ 	  printf(" %17s %5d %3c %5d\n ", attr.attrName, attr.attrOffset, (getDataType(attr.attrType)).c_str(),  attr.attrLen );
    
    }
 

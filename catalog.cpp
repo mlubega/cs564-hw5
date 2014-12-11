@@ -18,26 +18,47 @@ const Status RelCatalog::getInfo(const string & relation, RelDesc &record)
   RID rid;
   HeapFileScan* hfs;
 
+  //create scan
   hfs = new HeapFileScan( relation , status);
   if(status != OK) {return status; }
    
+  //set filter
+  status = hfs->startScan(0, MAXSTRINGLEN, STRING, relation.c_str(), EQ);
+  if(status != OK) {
+    delete hfs;
+    return status;
+  }
 
-  status = hfs->startScan(0, int(relation.length()), STRING, relation.c_str(), EQ);
-  if(status != OK) {return status; }
-
+  //find and retrieve record
   status = hfs->scanNext(rid);
 
-  if( status == FILEEOF) {return RELNOTFOUND;}
-  if(status != OK) {return status; }
+  if( status == FILEEOF) {
+    delete hfs;
+    return RELNOTFOUND;
+  }
+  if(status != OK) {
+    delete hfs;
+    return status;
+  }
  
 
   status = hfs->getRecord(rec);
-  if(status != OK) {return status; }
+  if(status != OK) {
+    delete hfs;
+    return status;
+  }
 
-  memcpy(&record, &rec, rec.length);
-
+  //copy data
+  memcpy(&record, &rec, sizeof(RelDesc));
+ 
+  //clean up
   status = hfs->endScan();
-  if(status != OK) {return status; }
+  if(status != OK) {
+    delete hfs;
+    return status;
+  }
+
+  delete hfs;
 
   return OK;
 
@@ -50,23 +71,28 @@ const Status RelCatalog::addInfo(RelDesc & record)
   InsertFileScan*  ifs;
   Status status;
 
+  //create record
   Record rec;
-  memcpy(rec.data, &record, sizeof(RelDesc));
+  rec.data = &record;
+  //memcpy(rec.data, &record, sizeof(RelDesc));
   rec.length = sizeof(RelDesc); 
 
+  //create scan
   ifs = new InsertFileScan( RELCATNAME , status);  
   if(status != OK) {
 	  
 	  delete ifs;
-	  return status; }
+	  return status;
+  }
 
+  //insert record
   status = ifs->insertRecord(rec, rid);
   if(status != OK) {
 	  
 	  delete ifs;
 	  return status;
   }
-  
+  //clean up
   delete ifs;
 
   return OK;
@@ -85,15 +111,29 @@ const Status RelCatalog::removeInfo(const string & relation)
   hfs = new HeapFileScan(relation, status);
   if(status != OK) {return status; }
   
+  //set filter
+  if((status = hfs->startScan(0, MAXSTRINGLEN, STRING, relation.c_str(), EQ)) != OK){
+    delete hfs;
+    return status;
+  }
+
+  //find record
+  if((status = hfs->scanNext(rid)) != OK) {
+    delete hfs;
+    return status;
+  }
   
-  if((status = hfs->startScan(0, int(relation.length()), STRING, relation.c_str(), EQ)) != OK){return status; }
+  //delete record 
+  if((status = hfs->deleteRecord()) != OK) {
+    delete hfs;
+    return status;
+  }
 
-  if((status = hfs->scanNext(rid)) != OK) {return status; }
- 
-  // if( (status = hfs->getRecord(rec)) != OK) {return status; }
-  if( (status = hfs->deleteRecord()) != OK) {return status; }
+  if(( status = hfs->endScan()) != OK) {
+    delete hfs;
+    return status; }
 
-  if(( status = hfs->endScan()) != OK) {return status; }
+  delete hfs;
 
   return OK;
 }
@@ -165,6 +205,7 @@ const Status AttrCatalog::addInfo(AttrDesc & record)
   Record rec;
 
 
+  //create scan
   ifs = new InsertFileScan(ATTRCATNAME, status);
   if( status != OK) {
 	  delete ifs;
@@ -172,8 +213,9 @@ const Status AttrCatalog::addInfo(AttrDesc & record)
   }
  
   //store data
-  memcpy(rec.data, &record, sizeof(AttrDesc));
-  rec.length = record.attrLen;
+  rec.data = &record;
+//  memcpy(rec.data, &record, sizeof(AttrDesc));
+  rec.length = sizeof(AttrDesc);
 
   //insert new record
   if( (status = ifs->insertRecord(rec, rid)) != OK) {
@@ -181,6 +223,7 @@ const Status AttrCatalog::addInfo(AttrDesc & record)
 	  return OK;
  }
   
+  //clean up
   delete ifs;
   return OK;
 
@@ -200,52 +243,50 @@ const Status AttrCatalog::removeInfo(const string & relation,
 
   if (relation.empty() || attrName.empty()) return BADCATPARM;
  
- //ensure relation exists
- if ( (status = relCat->getInfo(relation, rd)) != OK){ return OK;}
+  //ensure relation exists
+  if ( (status = relCat->getInfo(relation, rd)) != OK ){ return status;}
 
- hfs = new HeapFileScan(ATTRCATNAME, status);
- if (status != OK) {return status;}
+  //create scan
+  hfs = new HeapFileScan(ATTRCATNAME, status);
+  if (status != OK) {return status;}
  
-  status = hfs->startScan(0, int(attrName.length()), STRING, attrName.c_str(), EQ);
+  //set filter
+  status = hfs->startScan(0, MAXSTRINGLEN , STRING, attrName.c_str(), EQ);
   if(status != OK) {return status; }
 
   
-  bool attrFound = false;
-
-
   //loop to find attributes
+  bool attrFound = false;
   while(!attrFound){
 
-  	status = hfs->scanNext(rid);
-
-  	if( status == FILEEOF){ break; }
+   if( (status = hfs->scanNext(rid)) == FILEEOF){ break; }
 	
-	//clean exit in case of error
-	if( status != OK) { 
-		hfs->endScan();
-		delete hfs;
-		return status;
-	}
+	  //clean exit in case of error
+	  if( status != OK) { 
+	  	hfs->endScan();
+	  	delete hfs;
+	  	return status;
+	  }
 
-	//get record or clean exit in case of error
-	status = hfs->getRecord(rec);
-    if( status != OK) { 
-		hfs->endScan();
-		delete hfs;
-		return status;
-	}
+  	//get record or clean exit in case of error
+  	if( (status = hfs->getRecord(rec)) != OK) { 
+  		hfs->endScan();
+  		delete hfs;
+  		return status;
+  	}
 
-	//compare relation name
+	  //compare relation name
     AttrDesc * tmpAttrPtr =  (AttrDesc *) rec.data; 
     char * tmpRelName;
-	relation.copy(tmpRelName, relation.length(), 0);
+	  relation.copy(tmpRelName, relation.length(), 0);
 
-	if( strcmp(tmpRelName, tmpAttrPtr->relName) == 0){
-		hfs->deleteRecord();
-		attrFound = true;
-	}
+  	if( strcmp(tmpRelName, tmpAttrPtr->relName) == 0){
+	  	hfs->deleteRecord();
+	  	attrFound = true;
+	  }
   }
 
+  //cleap up
   hfs->endScan();
   delete hfs;
 
@@ -293,35 +334,32 @@ const Status AttrCatalog::getRelInfo(const string & relation,
 
 
   //fill attribute array
-  i = 0; //index for attrArray
- 
+  i = 0;  
   while ( i < rd.attrCnt){
 
-	//find a record
+	  //find a record
     status = hfs->scanNext(rid);
- 
-	if( status == FILEEOF){ break; }
+    if( status == FILEEOF){ break; }
 	
-	// in case of some other error
-	if( status != OK) { 
-		hfs->endScan();
-		delete hfs;
-		return status; 
-	} 
+	  // in case of some other error
+	  if( status != OK) { 
+		  hfs->endScan();
+		  delete hfs;
+	  	return status; 
+	  } 
 		
-	// retrieve record
-	if( (status = hfs->getRecord(rec)) != OK ){
-		hfs->endScan();
-		delete hfs;		
-		return status; // INVALIDSLOTNO or something
-	}
+  	// retrieve record
+  	if( (status = hfs->getRecord(rec)) != OK ){
+  		hfs->endScan();
+  		delete hfs;		
+  		return status; // INVALIDSLOTNO or something
+  	}
 
-	//copy over to array
-	memcpy(&attrArray[i], rec.data, rec.length);
+	  //copy over to array
+	  memcpy(&attrArray[i], rec.data, rec.length);
 	
-	//increment array index
-	i++;
-	
+	  //increment array index
+	  i++;
 	}
 
     
@@ -333,9 +371,6 @@ const Status AttrCatalog::getRelInfo(const string & relation,
    attrCnt = rd.attrCnt;
    attrs = attrArray;
    return OK;
-
-
-
 
 }
 

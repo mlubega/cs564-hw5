@@ -82,7 +82,7 @@ if ( $status == 0 ) goto DATAOK
 
 if ( ! -w . ) then
 	echo You do not have permission to create files in this \
-		'directory.  Please fix the permissions and rerun \
+		directory.  Please fix the permissions and rerun \
 		this script. | fmt
 	exit 1
 endif
