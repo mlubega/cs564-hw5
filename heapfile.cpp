@@ -11,7 +11,7 @@ const Status createHeapFile(const string fileName)
     int			newPageNo;
     Page*		newPage;
 
-    // try to open the file. This should return an error
+        // try to open the file. This should return an error
     status = db.openFile(fileName, file);
     if (status != OK)
     {
@@ -76,14 +76,13 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
     Status 	status;
     Page*	pagePtr;
 
-    //cout << "opening file " << fileName << endl;
-
     // open the file and read in the header page and the first data page
     if ((status = db.openFile(fileName, filePtr)) == OK)
     {
 		//  get header page into the buffer pool
 		// first gets its page number
 		status = filePtr->getFirstPage(headerPageNo);
+
 		if (status != OK) 
 		{
 			cerr << "no first page number \n";
@@ -106,6 +105,7 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
 			cerr << "read of data page failed\n";
 			returnStatus = status;
 		}
+
 		curDirtyFlag = false;
 		curRec = NULLRID; 	
 		returnStatus = OK;
@@ -115,7 +115,8 @@ HeapFile::HeapFile(const string & fileName, Status& returnStatus)
     {
     	cerr << "open of heap file failed\n";
 		returnStatus = status;
-		return;
+		
+    return;
     }
 }
 
@@ -204,7 +205,7 @@ const Status HeapFile::getRecord(const RID &  rid, Record & rec)
 HeapFileScan::HeapFileScan(const string & name,
 			   Status & status) : HeapFile(name, status)
 {
-    filter = NULL;
+  filter = NULL;
 }
 
 const Status HeapFileScan::startScan(const int offset_,

@@ -22,19 +22,13 @@ const Status RelCatalog::destroyRel(const string & relation)
     return BADCATPARM;
 
 	//find relation
-	if(( status = relCat->getInfo(relation, rd)) != OK ){
+	if(( status = getInfo(relation, rd)) != OK ){
     cout << "destroyRel getInfo relation status: " << status << endl;
     return status; }
 
   
 		
 	
-    //remove relation from relcatalog
-    status = relCat->removeInfo(relation); 
-		if( status != OK){
-      
-    cout << "destroyRel removeInfo relation status: " << status << endl;
-      return status;}
 		
     //remove all attributes with relation as relName
 		status = attrCat->dropRelation(relation);
@@ -43,8 +37,15 @@ const Status RelCatalog::destroyRel(const string & relation)
     cout << "destroyRel dropRelation relation status: " << status << endl;
       return status;}
 
+    //remove relation from relcatalog
+    status = removeInfo(relation); 
+		if( status != OK){
+      
+    cout << "destroyRel removeInfo relation status: " << status << endl;
+      return status;}
 		//destroy the heap file
-		return status = destroyHeapFile(relation);
+		
+      return status = destroyHeapFile(relation);
 		//if( status != OK){return status;}
 
 
@@ -74,18 +75,21 @@ const Status AttrCatalog::dropRelation(const string & relation)
 
   //get list of attributes
 	if( (status = attrCat->getRelInfo(relation, attrCnt, attrs)) != OK) {
-   
-   cout <<  "dropRelation getRelInfo error " << endl;
-    return status;}
+    cout <<  "AttrCat::dropRelation getRelInfo error " << endl;
+    return status;
+  }
+
+  cout << "Successful retrieve attributes" << endl;
 
   //remove each attribute
 	for( i = 0; i < attrCnt; i++){
 		
-		AttrDesc attr = attrs[i];
 
-	  if( (status = attrCat->removeInfo(relation, string(attr.attrName))) != OK) { 
+      cout << " Iter #: " << i << " , attribute: " << string(attrs[i].attrName) << endl;
+	  if( (status = attrCat->removeInfo(relation, string(attrs[i].attrName))) != OK) { 
+
      
-   cout << " dropRelation removeInfo error"   << endl; 
+       cout << " AttrCat::dropRelation removeInfo error"   << endl; 
  
       delete attrs;
       return status;
@@ -93,13 +97,74 @@ const Status AttrCatalog::dropRelation(const string & relation)
 
 	}
 
+  cout << " AttrCat::dropRelation successfull removal of attributes" << endl;
   //clean up reference
   delete attrs;
 
+  cout << "sucessfull delete of attributes array" << endl;
 	return OK;
 
 
+/*
+  //Creates a scan object
+  HeapFileScan* scan = new HeapFileScan(RELCATNAME, status);
 
+  if(status != OK)
+    return status;
+  
+  //Begin scan of the tuples
+  if((status = scan->startScan(0, 0, STRING, NULL, EQ)) != OK)
+    return status;
+
+  Record rec;
+  RID rid;
+
+  //While tuples still exist (file not finished), check
+  //the tuples to find which relName matches relation
+  while((status = scan->scanNext(rid)) != FILEEOF){
+    if(status != OK)
+      return status;
+
+    if((status = scan->getRecord(rec)) != OK)
+      return status;
+
+    //Then delete those tuples
+    if(strcmp((char *) rec.data, relation.c_str()) == 0){ 
+      scan->deleteRecord();
+    }
+  }
+
+  if((status = scan->endScan()) != OK)
+    return status;
+  delete scan;
+
+  // Repeat one more time
+  scan = new HeapFileScan(ATTRCATNAME, status);
+
+  if(status != OK)
+    return status;
+
+  if((status = scan->startScan(0, 0, STRING, NULL, EQ)) != OK)
+    return status;
+
+  while((status = scan->scanNext(rid)) != FILEEOF){
+    if(status != OK)
+      return status;
+
+    if((status = scan->getRecord(rec)) != OK)
+      return status;
+
+    if(strcmp((char *) rec.data, relation.c_str()) == 0){ 
+      scan->deleteRecord();
+    }
+  }
+
+  if((status = scan->endScan()) != OK)
+    return status;
+  delete scan;
+
+  return OK; 
+*/
 }
 
 

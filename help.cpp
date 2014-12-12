@@ -59,13 +59,13 @@ const Status RelCatalog::help(const string & relation)
   
    printf( " Attribute Name   Off      T    Len\n ");
    printf( "---------------  ------- ----- -----\n" );
-
+/*
    for(i = 0; i < attrCnt; i ++){
 	   AttrDesc attr = attrs[i];
  
  	  printf(" %17s %5d %3c %5d\n ", attr.attrName, attr.attrOffset, (getDataType(attr.attrType)).c_str(),  attr.attrLen );
    
    }
-
+*/
   return OK;
 }

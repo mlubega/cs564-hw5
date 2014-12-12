@@ -42,6 +42,8 @@ const Status UT_Load(const string & relation, const string & fileName)
   //get attribute catalog
   if( (status = attrCat->getRelInfo(relation, attrCnt, attrs)) != OK) {return status;}
   int i;
+
+  cout <<  "load.cpp attrCnt: " << attrCnt << endl; 
   for( i = 0; i < attrCnt; i++){
     width+= attrs[i].attrLen;
   } 
@@ -69,10 +71,11 @@ const Status UT_Load(const string & relation, const string & fileName)
     records++;
   }
 
-  delete iFile;
 
   // close heap file and unix file
   if (close(fd) < 0) return UNIXERR;
+  
+  delete iFile;
 
   return OK;
 }
