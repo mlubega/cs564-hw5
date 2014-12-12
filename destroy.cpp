@@ -15,7 +15,6 @@ const Status RelCatalog::destroyRel(const string & relation)
 {
   Status status;
   RelDesc rd;
-  int i;
 
   if (relation.empty() || 
       relation == string(RELCATNAME) || 
@@ -23,24 +22,33 @@ const Status RelCatalog::destroyRel(const string & relation)
     return BADCATPARM;
 
 	//find relation
-	status = relCat->getInfo(relation, rd);
+	if(( status = relCat->getInfo(relation, rd)) != OK ){
+    cout << "destroyRel getInfo relation status: " << status << endl;
+    return status; }
 
-	if( status == RELEXISTS){
+  
 		
-		//remove all attributes with relation as relName
-		status = attrCat->dropRelation(relation);
-		if( status != OK){return status;}
 	
     //remove relation from relcatalog
     status = relCat->removeInfo(relation); 
+		if( status != OK){
+      
+    cout << "destroyRel removeInfo relation status: " << status << endl;
+      return status;}
+		
+    //remove all attributes with relation as relName
+		status = attrCat->dropRelation(relation);
+		if( status != OK){
+      
+    cout << "destroyRel dropRelation relation status: " << status << endl;
+      return status;}
 
 		//destroy the heap file
-		status = destroyHeapFile(relation);
-		if( status != OK){return status;}
+		return status = destroyHeapFile(relation);
+		//if( status != OK){return status;}
 
-	}
 
-	return OK;
+//	return OK;
 
 
 }
@@ -65,7 +73,10 @@ const Status AttrCatalog::dropRelation(const string & relation)
   if (relation.empty()) return BADCATPARM;
 
   //get list of attributes
-	if( (status = attrCat->getRelInfo(relation, attrCnt, attrs)) != OK) { return status;}
+	if( (status = attrCat->getRelInfo(relation, attrCnt, attrs)) != OK) {
+   
+   cout <<  "dropRelation getRelInfo error " << endl;
+    return status;}
 
   //remove each attribute
 	for( i = 0; i < attrCnt; i++){
@@ -73,6 +84,9 @@ const Status AttrCatalog::dropRelation(const string & relation)
 		AttrDesc attr = attrs[i];
 
 	  if( (status = attrCat->removeInfo(relation, string(attr.attrName))) != OK) { 
+     
+   cout << " dropRelation removeInfo error"   << endl; 
+ 
       delete attrs;
       return status;
     }

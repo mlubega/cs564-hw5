@@ -19,13 +19,16 @@ const Status RelCatalog::getInfo(const string & relation, RelDesc &record)
   HeapFileScan* hfs;
 
   //create scan
-  hfs = new HeapFileScan( relation , status);
-  if(status != OK) {return status; }
+  hfs = new HeapFileScan( RELCATNAME , status);
+  if(status != OK) {
+    cout << "getInfo heapfile creation error" << endl;
+    return status; }
    
   //set filter
-  status = hfs->startScan(0, MAXSTRINGLEN, STRING, relation.c_str(), EQ);
+  status = hfs->startScan(0, MAXNAME, STRING, relation.c_str(), EQ);
   if(status != OK) {
     delete hfs;
+    cout << "getInfo heapfile startScan error" << endl;
     return status;
   }
 
@@ -34,6 +37,7 @@ const Status RelCatalog::getInfo(const string & relation, RelDesc &record)
 
   if( status == FILEEOF) {
     delete hfs;
+    cout << "getInfo scan next  relation not found error" << endl;
     return RELNOTFOUND;
   }
   if(status != OK) {
@@ -52,12 +56,12 @@ const Status RelCatalog::getInfo(const string & relation, RelDesc &record)
   memcpy(&record, &rec, sizeof(RelDesc));
  
   //clean up
-  status = hfs->endScan();
+/*  status = hfs->endScan();
   if(status != OK) {
     delete hfs;
     return status;
   }
-
+*/
   delete hfs;
 
   return OK;
@@ -74,12 +78,13 @@ const Status RelCatalog::addInfo(RelDesc & record)
   //create record
   Record rec;
   rec.data = &record;
-  //memcpy(rec.data, &record, sizeof(RelDesc));
   rec.length = sizeof(RelDesc); 
+ 
 
   //create scan
   ifs = new InsertFileScan( RELCATNAME , status);  
   if(status != OK) {
+  cout <<" addInfo InsertFileScan error "<< endl;
 	  
 	  delete ifs;
 	  return status;
@@ -88,6 +93,7 @@ const Status RelCatalog::addInfo(RelDesc & record)
   //insert record
   status = ifs->insertRecord(rec, rid);
   if(status != OK) {
+  cout <<" addInfo insertRecord Error "<< endl;
 	  
 	  delete ifs;
 	  return status;
@@ -108,11 +114,11 @@ const Status RelCatalog::removeInfo(const string & relation)
   if (relation.empty()) return BADCATPARM;
 
   //create scan
-  hfs = new HeapFileScan(relation, status);
+  hfs = new HeapFileScan( RELCATNAME, status);
   if(status != OK) {return status; }
   
   //set filter
-  if((status = hfs->startScan(0, MAXSTRINGLEN, STRING, relation.c_str(), EQ)) != OK){
+  if((status = hfs->startScan(0, MAXNAME, STRING, relation.c_str(), EQ)) != OK){
     delete hfs;
     return status;
   }
@@ -128,11 +134,11 @@ const Status RelCatalog::removeInfo(const string & relation)
     delete hfs;
     return status;
   }
-
+/*
   if(( status = hfs->endScan()) != OK) {
     delete hfs;
     return status; }
-
+*/
   delete hfs;
 
   return OK;
@@ -251,7 +257,7 @@ const Status AttrCatalog::removeInfo(const string & relation,
   if (status != OK) {return status;}
  
   //set filter
-  status = hfs->startScan(0, MAXSTRINGLEN , STRING, attrName.c_str(), EQ);
+  status = hfs->startScan(0, MAXNAME , STRING, attrName.c_str(), EQ);
   if(status != OK) {return status; }
 
   
@@ -270,7 +276,7 @@ const Status AttrCatalog::removeInfo(const string & relation,
 
   	//get record or clean exit in case of error
   	if( (status = hfs->getRecord(rec)) != OK) { 
-  		hfs->endScan();
+  //		hfs->endScan();
   		delete hfs;
   		return status;
   	}
@@ -287,7 +293,7 @@ const Status AttrCatalog::removeInfo(const string & relation,
   }
 
   //cleap up
-  hfs->endScan();
+//  hfs->endScan();
   delete hfs;
 
   if(!attrFound){
@@ -316,21 +322,30 @@ const Status AttrCatalog::getRelInfo(const string & relation,
   if (relation.empty()) return BADCATPARM;
 
   // check that relation exists
-  if( (status = relCat->getInfo(relation,rd)) != OK) {return status;}; 
+  if( (status = relCat->getInfo(relation,rd)) != OK) {
+    cout << "getRelInfo getInfo error" << endl;
+    return status;}; 
 
   //create array for attributes
   if( rd.attrCnt > 0){
   		attrs = new AttrDesc[attrCnt];
   }else{
+    cout << "getRelInfo less than 0 attr  error" << endl;
   		return ATTRNOTFOUND;
   }
 
   //start scanning for attributes
   hfs = new HeapFileScan( ATTRCATNAME, status);
-  if( status != OK ) {return status;}
+  if( status != OK ) {
+    
+    cout << "getRelInfo heapfilescan open  error" << endl;
+    return status;}
  
-  status = hfs->startScan(0, int(relation.length()), STRING, relation.c_str(), EQ);
-  if(status != OK) {return status; }
+  status = hfs->startScan(0, MAXNAME, STRING, relation.c_str(), EQ);
+  if(status != OK) {
+    
+    cout << "getRelInfo startScan error"  << endl;
+    return status; }
 
 
   //fill attribute array
@@ -339,24 +354,29 @@ const Status AttrCatalog::getRelInfo(const string & relation,
 
 	  //find a record
     status = hfs->scanNext(rid);
-    if( status == FILEEOF){ break; }
+    if( status == FILEEOF){ 
+      
+    cout << "getRelInfo end of file scanNext error" << endl;
+      break; }
 	
 	  // in case of some other error
 	  if( status != OK) { 
-		  hfs->endScan();
+	//	  hfs->endScan();
+    cout << "getRelInfo  scanNExt other  error" << endl;
 		  delete hfs;
 	  	return status; 
 	  } 
 		
   	// retrieve record
   	if( (status = hfs->getRecord(rec)) != OK ){
-  		hfs->endScan();
+  //		hfs->endScan();
+    cout << "getRelInfo  getRecord  error" << endl;
   		delete hfs;		
   		return status; // INVALIDSLOTNO or something
   	}
 
 	  //copy over to array
-	  memcpy(&attrArray[i], rec.data, rec.length);
+	  memcpy(&attrArray[i], rec.data, sizeof(AttrDesc));
 	
 	  //increment array index
 	  i++;
