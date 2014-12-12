@@ -27,32 +27,31 @@ const Status UT_Load(const string & relation, const string & fileName)
     return BADCATPARM;
 
   // open Unix data file
-
   int fd;
   if ((fd = open(fileName.c_str(), O_RDONLY, 0)) < 0)
     return UNIXERR;
 
   // get relation data
-  if ( (status= relCat->getInfo(relation, rd)) != OK){ return status; }
+  if ( (status= relCat->getInfo(relation, rd)) != OK)
+    return status;
 
   // start insertFileScan on relation
   iFile = new InsertFileScan(relation, status);
-  if( status != OK) {return status;}
+  if( status != OK)
+    return status;
 
   //get attribute catalog
-  if( (status = attrCat->getRelInfo(relation, attrCnt, attrs)) != OK) {return status;}
-  int i;
+  if( (status = attrCat->getRelInfo(relation, attrCnt, attrs)) != OK)
+    return status;
 
-  cout <<  "load.cpp attrCnt: " << attrCnt << endl; 
+  //calcuate width  
+  int i;
   for( i = 0; i < attrCnt; i++){
     width+= attrs[i].attrLen;
   } 
 
+  //free reference
   delete attrs;
-
-
-
-
 
   // allocate buffer to hold record read from unix file
   char *record;

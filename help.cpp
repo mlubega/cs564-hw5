@@ -26,6 +26,13 @@ using namespace std;
 // 	error code otherwise
 //
 //
+//
+//
+
+
+
+//Helper Method, coverts enum DataTypes (STRING,FLOAT, etc)
+//into a string representation
 string  getDataType(int type) 
 {
      switch (type) 
@@ -46,26 +53,30 @@ const Status RelCatalog::help(const string & relation)
 
   if (relation.empty()) return UT_Print(RELCATNAME);
 
-   //get relation
-   if( (status = relCat->getInfo(relation, rd)) != OK){return status;}
+  //get relation
+  if( (status = relCat->getInfo(relation, rd)) != OK)
+    return status;
 
-   //get list of attributes
-   if( (status = attrCat->getRelInfo(relation, attrCnt, attrs)) != OK){return status;}
-
-   
-
-
-   cout << "Relation name: " << relation << "(" << rd.attrCnt << "  attributes)" << endl;
+  //get list of attributes
+  if( (status = attrCat->getRelInfo(relation, attrCnt, attrs)) != OK)
+    return status;
   
-   printf( " Attribute Name   Off      T    Len\n ");
-   printf( "---------------  ------- ----- -----\n" );
-/*
-   for(i = 0; i < attrCnt; i ++){
-	   AttrDesc attr = attrs[i];
- 
- 	  printf(" %17s %5d %3c %5d\n ", attr.attrName, attr.attrOffset, (getDataType(attr.attrType)).c_str(),  attr.attrLen );
-   
-   }
-*/
+  //string variables for printing
+  string attrNameLabel = "Attribute Name";
+  string offsetLabel = "Off";
+  string  typeLabel = "Type";
+  string  lenLabel = "Len";
+  
+  //Start of output
+  cout << "Relation name: " << relation << "(" << rd.attrCnt << "  attributes)" << endl;
+ 	printf(" %-23.23s %7s %7s %8s\n ", attrNameLabel.c_str(), offsetLabel.c_str(), typeLabel.c_str(),  lenLabel.c_str() );
+  printf( "-----------------         -----   -----     -----\n" );
+
+  for(i = 0; i < attrCnt; i ++){
+    AttrDesc attr = attrs[i];
+    printf("%-23.23s %7d %7s %8d\n" , attr.attrName, attr.attrOffset, (getDataType(attr.attrType)).c_str(),  attr.attrLen );
+  }
+
+  delete attrs;
   return OK;
 }
